@@ -75,25 +75,34 @@ def read_plugin_json(install_path):
 
 
 def resolve(installed, marketplaces):
-    """Walk the dependency tree. Return (tree, missing, marketplace_cmds, install_cmds)."""
+    """Walk the dependency tree. Return (tree, missing, cycles, marketplace_cmds, install_cmds)."""
     tree = {}  # plugin_name -> list of dependency names
     missing = {}  # dep_name -> {marketplace, source}
+    cycles = []  # list of cycle descriptions (e.g., "a -> b -> a")
     marketplace_cmds = []  # /plugin marketplace add commands
     install_cmds = []  # /plugin install commands
 
-    # Also scan plugins loaded via --plugin-dir (check project .claude/settings*)
-    # For now, focus on globally installed plugins
+    resolved = set()  # fully resolved (all deps walked)
+    in_progress = set()  # currently being walked (cycle detection)
 
-    visited = set()
+    def walk(name, path=None):
+        if path is None:
+            path = []
 
-    def walk(name):
-        if name in visited:
+        if name in resolved:
             return
-        visited.add(name)
+        if name in in_progress:
+            # Cycle detected — trace the path
+            cycle_start = path.index(name)
+            cycle = path[cycle_start:] + [name]
+            cycles.append(" -> ".join(cycle))
+            return
 
         info = installed.get(name)
         if not info:
             return
+
+        in_progress.add(name)
 
         pj = read_plugin_json(info["install_path"])
         deps = pj.get("dependencies", {})
@@ -102,6 +111,10 @@ def resolve(installed, marketplaces):
         for dep_name, dep_info in deps.items():
             if isinstance(dep_info, str):
                 dep_info = {"marketplace": dep_info}
+
+            # Skip self-references (e.g., deps plugin can't depend on itself)
+            if dep_name == name:
+                continue
 
             if dep_name not in installed:
                 missing[dep_name] = dep_info
@@ -117,14 +130,19 @@ def resolve(installed, marketplaces):
 
                 # Install command
                 if mp_name:
-                    install_cmds.append(f"/plugin install {dep_name}@{mp_name}")
+                    cmd = f"/plugin install {dep_name}@{mp_name}"
+                    if cmd not in install_cmds:
+                        install_cmds.append(cmd)
             else:
-                walk(dep_name)
+                walk(dep_name, path + [name])
+
+        in_progress.discard(name)
+        resolved.add(name)
 
     for name in list(installed.keys()):
         walk(name)
 
-    return tree, missing, marketplace_cmds, install_cmds
+    return tree, missing, cycles, marketplace_cmds, install_cmds
 
 
 def print_tree(tree, installed):
@@ -149,10 +167,14 @@ def main():
 
     installed = get_installed_plugins()
     marketplaces = get_known_marketplaces()
-    tree, missing, mp_cmds, install_cmds = resolve(installed, marketplaces)
+    tree, missing, cycles, mp_cmds, install_cmds = resolve(installed, marketplaces)
 
     if mode == "tree":
         print_tree(tree, installed)
+        if cycles:
+            print(f"\nWarning: {len(cycles)} dependency cycle(s) detected:")
+            for c in cycles:
+                print(f"  {c}")
         return
 
     if mode == "json":
@@ -160,6 +182,7 @@ def main():
             "installed": {k: v["version"] for k, v in installed.items()},
             "tree": tree,
             "missing": list(missing.keys()),
+            "cycles": cycles,
             "marketplace_commands": mp_cmds,
             "install_commands": install_cmds,
         }, indent=2))
@@ -172,6 +195,11 @@ def main():
 
     print()
     print_tree(tree, installed)
+
+    if cycles:
+        print(f"\nWarning: {len(cycles)} dependency cycle(s) detected:")
+        for c in cycles:
+            print(f"  {c}")
 
     if missing:
         print(f"\nMissing dependencies: {len(missing)}")

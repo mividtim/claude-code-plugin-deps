@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mividtim-claude-code-plugin-deps",
+  "description": "Dependency resolution for Claude Code plugins",
+  "owner": {
+    "name": "Tim Garthwaite"
+  },
+  "plugins": [
+    {
+      "name": "deps",
+      "description": "Dependency resolution for Claude Code plugins. Scans installed plugins for dependency declarations and installs missing ones.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/mividtim/claude-code-plugin-deps.git"
+      },
+      "homepage": "https://github.com/mividtim/claude-code-plugin-deps"
+    }
+  ]
+}

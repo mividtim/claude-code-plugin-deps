@@ -31,17 +31,14 @@ To view the full dependency graph:
 
 ## Declaring Dependencies
 
-Plugin authors: add a `dependencies` field to your `.claude-plugin/plugin.json`:
+Plugin authors: create a `.claude-plugin/deps.json` file:
 
 ```json
 {
-  "name": "my-plugin",
-  "version": "1.0.0",
-  "dependencies": {
-    "other-plugin": {
-      "marketplace": "marketplace-name",
-      "source": "owner/repo"
-    }
+  "other-plugin": {
+    "marketplace": "marketplace-name",
+    "source": "owner/repo",
+    "version": ">=1.0.0"
   }
 }
 ```
@@ -51,6 +48,10 @@ Plugin authors: add a `dependencies` field to your `.claude-plugin/plugin.json`:
 | `marketplace` | Yes | Local marketplace alias for `/plugin install name@marketplace` |
 | `source` | No | GitHub `owner/repo` — used to add the marketplace if not yet registered |
 | `version` | No | Semver constraint (see below) |
+
+> **Why deps.json?** Claude Code's plugin validator rejects unrecognized keys
+> in `plugin.json`. A standalone file avoids schema conflicts. The resolver
+> also reads `dependencies` from `plugin.json` as a legacy fallback.
 
 ### Version Constraints
 
@@ -73,31 +74,25 @@ If the dependency only needs a marketplace name:
 
 ```json
 {
-  "dependencies": {
-    "other-plugin": "marketplace-name"
-  }
+  "other-plugin": "marketplace-name"
 }
 ```
 
 ## Example
 
-The [claude-code-agency](https://github.com/mividtim/claude-code-agency) plugin declares a dependency on [event-listeners](https://github.com/mividtim/claude-code-event-listeners):
+The [claude-code-agency](https://github.com/mividtim/claude-code-agency) plugin declares dependencies in `.claude-plugin/deps.json`:
 
 ```json
 {
-  "name": "agency",
-  "version": "1.0.0",
-  "dependencies": {
-    "deps": {
-      "marketplace": "mividtim",
-      "source": "mividtim/claude-code-plugins",
-      "version": ">=0.1.0"
-    },
-    "el": {
-      "marketplace": "mividtim",
-      "source": "mividtim/claude-code-plugins",
-      "version": "^0.5.0"
-    }
+  "deps": {
+    "marketplace": "mividtim",
+    "source": "mividtim/claude-code-plugins",
+    "version": ">=0.2.0"
+  },
+  "el": {
+    "marketplace": "mividtim",
+    "source": "mividtim/claude-code-plugins",
+    "version": "^0.5.0"
   }
 }
 ```
@@ -107,7 +102,7 @@ Running `/deps:resolve` after installing `agency` will detect that `el` is missi
 ## How It Works
 
 1. Reads `~/.claude/plugins/installed_plugins.json` to find all installed plugins
-2. Reads each plugin's `.claude-plugin/plugin.json` for `dependencies`
+2. Reads each plugin's `.claude-plugin/deps.json` (or legacy `plugin.json`)
 3. Walks the dependency tree with cycle detection
 4. Checks installed versions against semver constraints
 5. Reports missing plugins with exact install commands

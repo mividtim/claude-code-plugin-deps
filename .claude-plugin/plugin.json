@@ -1,6 +1,6 @@
 {
   "name": "deps",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Dependency resolution for Claude Code plugins. Scans installed plugins for dependency declarations and installs missing ones.",
   "author": {
     "name": "Tim Garthwaite",

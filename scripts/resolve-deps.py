@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 """Resolve plugin dependency tree for Claude Code.
 
-Scans installed plugins for a 'dependencies' field in their plugin.json,
-builds the full dependency tree, and reports missing plugins with the
-commands needed to install them.
+Scans installed plugins for dependency declarations and builds the full
+dependency tree, reporting missing plugins with the commands to install them.
 
-Convention: plugins declare dependencies in .claude-plugin/plugin.json:
+Convention: plugins declare dependencies in .claude-plugin/deps.json:
 
     {
-      "name": "my-plugin",
-      "version": "1.0.0",
-      "dependencies": {
-        "other-plugin": {
-          "marketplace": "marketplace-name",
-          "source": "owner/repo",
-          "version": ">=0.5.0"
-        }
+      "other-plugin": {
+        "marketplace": "marketplace-name",
+        "source": "owner/repo",
+        "version": ">=0.5.0"
       }
     }
 
 - "marketplace": the local marketplace alias (used in /plugin install name@marketplace)
 - "source": GitHub owner/repo for adding the marketplace if not already present
 - "version": semver constraint — supports =, >=, <=, >, <, ^, ~, and space-separated ranges
+
+Legacy: also reads "dependencies" from plugin.json as a fallback.
 """
 
 import json
@@ -270,6 +267,19 @@ def read_plugin_json(install_path):
     return load_json(pj)
 
 
+def read_plugin_deps(install_path):
+    """Read a plugin's dependencies from .claude-plugin/deps.json.
+
+    Falls back to the 'dependencies' key in plugin.json for legacy plugins.
+    """
+    deps_file = Path(install_path) / ".claude-plugin" / "deps.json"
+    if deps_file.exists():
+        return load_json(deps_file)
+    # Legacy fallback
+    pj = read_plugin_json(install_path)
+    return pj.get("dependencies", {})
+
+
 # ---------------------------------------------------------------------------
 # Dependency resolution
 # ---------------------------------------------------------------------------
@@ -308,8 +318,7 @@ def resolve(installed, marketplaces):
 
         in_progress.add(name)
 
-        pj = read_plugin_json(info["install_path"])
-        deps = pj.get("dependencies", {})
+        deps = read_plugin_deps(info["install_path"])
         tree[name] = list(deps.keys())
 
         for dep_name, dep_info in deps.items():

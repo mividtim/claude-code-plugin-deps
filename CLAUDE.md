@@ -4,19 +4,14 @@ Adds dependency resolution to Claude Code's plugin system.
 
 ## Convention
 
-Plugins can declare dependencies on other plugins by adding a `dependencies`
-field to their `.claude-plugin/plugin.json`:
+Plugins declare dependencies in a standalone `.claude-plugin/deps.json` file:
 
 ```json
 {
-  "name": "my-plugin",
-  "version": "1.0.0",
-  "dependencies": {
-    "other-plugin": {
-      "marketplace": "marketplace-name",
-      "source": "owner/repo",
-      "version": ">=1.0.0"
-    }
+  "other-plugin": {
+    "marketplace": "marketplace-name",
+    "source": "owner/repo",
+    "version": ">=1.0.0"
   }
 }
 ```
@@ -24,6 +19,8 @@ field to their `.claude-plugin/plugin.json`:
 - `marketplace`: the local marketplace alias used with `/plugin install`
 - `source`: GitHub `owner/repo` for adding the marketplace if not yet registered
 - `version`: semver constraint — supports `=`, `>=`, `<=`, `>`, `<`, `!=`, `^`, `~`, and space-separated ranges
+
+Legacy: the resolver also reads `dependencies` from `plugin.json` as a fallback.
 
 ## Version Constraints
 
@@ -50,7 +47,7 @@ Pre-release versions sort below their release: `1.0.0-beta < 1.0.0`.
 ## How It Works
 
 The resolver reads `~/.claude/plugins/installed_plugins.json` to find all
-installed plugins, reads each plugin's `plugin.json` for dependency
-declarations, walks the tree, checks version constraints, detects cycles,
-and reports what's missing or outdated along with the exact commands to
-install or update them.
+installed plugins, reads each plugin's `deps.json` (or legacy `plugin.json`)
+for dependency declarations, walks the tree, checks version constraints,
+detects cycles, and reports what's missing or outdated along with the exact
+commands to install or update them.
